@@ -13,6 +13,12 @@
 #define MYPORT 5000
 #define BACKLOG 10
 
+void Kill_process(int sig)  //This function is used to kill the process, in order to free the used socket/port
+{
+	kill((int)getpid(),SIGKILL);
+	(void)signal(SIGINT, Kill_process);
+}
+
 int main(void)
 {
 	int sockfd, new_fd;
