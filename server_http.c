@@ -13,6 +13,8 @@
 #define MYPORT 5000
 #define BACKLOG 10
 
+char *httpHeader="HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: ";
+
 void Kill_process(int sig)  //This function is used to kill the process, in order to free the used socket/port
 {
 	kill((int)getpid(),SIGKILL);
@@ -40,8 +42,9 @@ char *get_useful_information(char *msg) //This function get the name of the requ
 	}
 	else 
 		return NULL;
-
 }
+
+
 
 int main(void)
 {
@@ -116,8 +119,23 @@ int main(void)
             
             
             //------------------------------------Send Data and Close Connection-------------------------------
-	    if (send(new_fd, "Salutare Vere!\n", 14, 0) == -1)
-		    printf("EROARE: Nu s-a putut trimite informatia catre client\n");
+            
+            char *httpHeader="HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: ";
+            char *HTML_file="<!DOCTYPE html>\n<html>\n<body>\n<p>\nExemplu\n</p><h1>titlu mare</h1>\n</body>\n</html>\n";
+            char string[10], raspuns[200];
+            
+            sprintf(string,"%ld\n",strlen(HTML_file));
+            //printf("%s\r\n", string);
+            strcat(raspuns, httpHeader);
+            strcat(raspuns,string);
+            //printf("%s\n", raspuns);
+            strcat(raspuns,"\n");
+            strcat(raspuns,HTML_file);
+            printf("\n%s\n", raspuns);
+            //write(new_fd, httpHeader, strlen(httpHeader));
+            send(new_fd, raspuns, strlen(raspuns), 0);
+	    //if (send(new_fd, "Salutare Vere!\n", 14, 0) == -1)
+		    //printf("EROARE: Nu s-a putut trimite informatia catre client\n");
  
             close(new_fd);
            
