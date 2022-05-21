@@ -25,13 +25,7 @@ int main(void)
 	    perror("socket");
 	    exit(1);
 	}
-/*
-	if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) 
-	{
-	    perror("setsockopt");
-	    exit(1);
-	}
-*/
+
 
 	my_addr.sin_family = AF_INET;
 	my_addr.sin_port = htons(MYPORT);
@@ -60,7 +54,7 @@ int main(void)
             }
             printf("server: conexiune de la: %s\n", inet_ntoa(their_addr.sin_addr));
             
-		if (send(new_fd, "Salut!\n", 14, 0) == -1)
+		if (send(new_fd, "Salutare Vere!\n", 14, 0) == -1)
 		    perror("send");
             close(new_fd);
            
