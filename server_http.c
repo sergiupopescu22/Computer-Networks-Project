@@ -9,9 +9,18 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <pthread.h>
 
 #define MYPORT 5000
 #define BACKLOG 10
+
+
+long thread_id;
+
+struct arg_struct{
+	int new_fd;
+	int t_id;
+};
 
 
 void Kill_process(int sig)  //This function is used to kill the process, in order to free the used socket/port
@@ -82,14 +91,55 @@ void send_response(const char *html_name, int new_fd)
 		printf("EROARE: Nu s-a putut trimite informatia catre client\n");
 }
 
+void *proccess_new_client(void *arguments)
+{
+	struct arg_struct *args = (struct arg_struct *)arguments;
+	char msg[1000];
+	//------------------------------------------Read Data----------------------------------------------
+		    
+	if((read(args->new_fd, &msg, sizeof(msg)))<0)
+	{
+		printf("EROARE: Nu s-a putut citi informatia\n");
+		exit(1);
+	}
+
+	//----------------------------------Process Request and Send Response--------------------------------
+
+	printf("Message:\n\n%s\n",msg);
+	char *html_name = get_useful_information(msg);
+	if(html_name != NULL)
+	{
+		if(strcmp(html_name,"favicon.ico"))
+		{
+			printf("Fisierul HTML dorit este: %s\n\n",html_name);
+			send_response(html_name,args->new_fd);
+		}
+		else
+		{
+			printf("Nu se va returna nimic\n\n");
+		}
+	}
+	else
+	{
+		printf("Se va returna pagina principala\n\n");
+		send_response("home",args->new_fd);
+	}       
+
+	//-----------------------------------------Close Connection------------------------------------------
+	close(args->new_fd);
+	
+	pthread_exit(NULL);
+	
+}
 int main(void)
 {
 	signal(SIGINT, Kill_process);
+	pthread_t client_threads[20];
 	int sockfd, new_fd;
 	struct sockaddr_in my_addr;
 	struct sockaddr_in their_addr;
-	int sin_size;
-	char msg[1000];
+	int sin_size, rc;
+	
 
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 	    printf("EROARE: Nu s-a putut creea socketul\n");
@@ -127,41 +177,25 @@ int main(void)
             printf("---------------------------NEW CONNECTION---------------------------\n");
             printf("server: conexiune de la: %s\n\n", inet_ntoa(their_addr.sin_addr));
             
-            //------------------------------------------Read Data----------------------------------------------
+            //---------------------------Create a thread for managing every client----------------------------
             
-            if((read(new_fd, &msg, sizeof(msg)))<0)
-            {
-            	printf("EROARE: Nu s-a putut citi informatia\n");
-            	continue;
-            }
+            struct arg_struct args;
+            args.new_fd = new_fd;
+            args.t_id = thread_id;
+            rc = pthread_create(&client_threads[thread_id++], NULL, proccess_new_client, (void *)&args);
             
-            //----------------------------------Process Request and Send Response--------------------------------
+            printf("Acest client va fi gestionat de threadul nr: %ld\n",thread_id);
             
-	    printf("Message:\n\n%s\n",msg);
-            char *html_name = get_useful_information(msg);
-            if(html_name != NULL)
-            {
-            	if(strcmp(html_name,"favicon.ico"))
-            	{
-            		printf("Fisierul HTML dorit este: %s\n\n",html_name);
-            		send_response(html_name,new_fd);
-            	}
-            	else
-            	{
-            		printf("Nu se va returna nimic\n\n");
-            	}
-            }
-            else
-            {
-            	printf("Se va returna pagina principala\n\n");
-            	send_response("home",new_fd);
-            }       
-
-            //-----------------------------------------Close Connection------------------------------------------
-            close(new_fd);
-           
+            if (rc)
+		{
+			printf("Codul erorii este: %d\n", rc);
+			exit(-1);
+		}
+	    if(thread_id == 18)
+	    	thread_id = 0;
+            
         }
-
+	pthread_exit(NULL);
         return 0;
 }
     
