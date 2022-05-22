@@ -13,7 +13,6 @@
 #define MYPORT 5000
 #define BACKLOG 10
 
-char *httpHeader="HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: ";
 
 void Kill_process(int sig)  //This function is used to kill the process, in order to free the used socket/port
 {
@@ -26,10 +25,10 @@ char *get_useful_information(char *msg) //This function get the name of the requ
 	char *p1 = strstr(msg, "GET /");
 	char *p2 = strstr(msg, " HTTP");
 	
-	char *str = malloc(10*sizeof(char));
+	char *str = malloc(20*sizeof(char));
 	int i = 0;
 	p1 = p1+5;
-	printf("Lungimea numelui este: %ld\n",p2-p2);
+	printf("Lungimea numelui este: %ld\n",p2-p1);
 	if(p2-p1 != 0)
 	{
 		while(p1!=p2)
@@ -44,7 +43,44 @@ char *get_useful_information(char *msg) //This function get the name of the requ
 		return NULL;
 }
 
+void parse_html_file(char *html_name, char* response)
+{
+	FILE *html_file = fopen(html_name,"r");
+	
+	if(html_file == NULL)
+		html_file = fopen("404.html","r");
+		
+	char line[100];
+	while(fgets(line,100,html_file)!=0)
+	{
+		strcat(response,line);
+	}
+}
 
+void send_response(const char *html_name, int new_fd)
+{
+	char httpHeader[2000]="HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: ";
+	
+	char nume_complet[10]= {}, response[1000]={};
+	
+	if(html_name == NULL)
+		strcat(nume_complet,"home.html");
+	else
+		strcat(nume_complet,html_name);
+		strcat(nume_complet,".html"); // adding .html part at the end of the html_name in order to serch for it
+
+	parse_html_file(nume_complet, response); // parse the html file and put the data in response
+
+	char lenght_of_html_file[10];
+	sprintf(lenght_of_html_file,"%ld\n\n",strlen(response));
+	strcat(httpHeader,lenght_of_html_file);  // adding the lenght of the response to the header
+
+	strcat(httpHeader,response);
+	printf("%s\n", httpHeader); 
+
+	if(send(new_fd, httpHeader, strlen(httpHeader), 0) == -1)
+		printf("EROARE: Nu s-a putut trimite informatia catre client\n");
+}
 
 int main(void)
 {
@@ -67,7 +103,7 @@ int main(void)
 
 	if (bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr)) == -1) 
 	{
-	    printf("EROARE: Nu s-a initializa socketul\n");
+	    printf("EROARE: Nu s-a initializat socketul\n");
 	    exit(1);
 	}
 
@@ -99,7 +135,7 @@ int main(void)
             	continue;
             }
             
-            //------------------------------------------Process Request----------------------------------------
+            //----------------------------------Process Request and Send Response--------------------------------
             
 	    printf("Message:\n\n%s\n",msg);
             char *html_name = get_useful_information(msg);
@@ -108,6 +144,7 @@ int main(void)
             	if(strcmp(html_name,"favicon.ico"))
             	{
             		printf("Fisierul HTML dorit este: %s\n\n",html_name);
+            		send_response(html_name,new_fd);
             	}
             	else
             	{
@@ -115,28 +152,12 @@ int main(void)
             	}
             }
             else
+            {
             	printf("Se va returna pagina principala\n\n");
-            
-            
-            //------------------------------------Send Data and Close Connection-------------------------------
-            
-            char *httpHeader="HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: ";
-            char *HTML_file="<!DOCTYPE html>\n<html>\n<body>\n<p>\nExemplu\n</p><h1>titlu mare</h1>\n</body>\n</html>\n";
-            char string[10], raspuns[200];
-            
-            sprintf(string,"%ld\n",strlen(HTML_file));
-            //printf("%s\r\n", string);
-            strcat(raspuns, httpHeader);
-            strcat(raspuns,string);
-            //printf("%s\n", raspuns);
-            strcat(raspuns,"\n");
-            strcat(raspuns,HTML_file);
-            printf("\n%s\n", raspuns);
-            //write(new_fd, httpHeader, strlen(httpHeader));
-            send(new_fd, raspuns, strlen(raspuns), 0);
-	    //if (send(new_fd, "Salutare Vere!\n", 14, 0) == -1)
-		    //printf("EROARE: Nu s-a putut trimite informatia catre client\n");
- 
+            	send_response("home",new_fd);
+            }       
+
+            //-----------------------------------------Close Connection------------------------------------------
             close(new_fd);
            
         }
@@ -144,6 +165,8 @@ int main(void)
         return 0;
 }
     
+    
+  //fuser -k 5000/tcp
     
     
     
